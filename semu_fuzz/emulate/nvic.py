@@ -127,8 +127,9 @@ def _nvic_tick_check(uc, address, size, user_data):
     every one blocks, check_pending and active
     every INTERRUPT_INTERVAL blocks, active the tick timer irq
     '''
-    NVIC.check_pending()
-    NVIC.deal_systick()
+    if address in globs.valid_block:
+        NVIC.check_pending()
+        NVIC.deal_systick()
 
 def _nvic_intr_handle(uc, intno, size):
     '''

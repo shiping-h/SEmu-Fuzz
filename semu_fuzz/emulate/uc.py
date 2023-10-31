@@ -7,7 +7,8 @@ from unicorn import *
 from unicorn.arm_const import *
 
 def _hook_block_add(uc, address, size, user_data):
-    globs.block_count = globs.block_count + 1
+    if address in globs.valid_block:
+        globs.block_count = globs.block_count + 1
 
 def uc_configure():
     config = globs.config
@@ -82,6 +83,7 @@ def uc_emulate(uc):
     globs.raw_input = globs.user_input[:]
     try:
         result = uc.emu_start(uc.reg_read(UC_ARM_REG_PC)|1, 0, timeout=0, count=globs.args.instr_limit)
+        do_exit(0)
     except UcError as e:
         print("[-] Crash! {}".format(e))
         force_crash(e)

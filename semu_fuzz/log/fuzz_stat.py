@@ -19,6 +19,8 @@ def _hook_bb(uc, address, size, user_data):
     global visit_block, valid_block
     if address not in visit_block and address in valid_block:
         visit_block.add(address)
+    if address in valid_block:
+        globs.visit_block_count[address] += 1
 
 def stat_configure():
     global stat_file_list, visit_block, valid_block
@@ -32,13 +34,15 @@ def stat_configure():
     with open(valid_block_path, 'r') as f:
         for line in f:
             valid_block.add(int(line.strip(), 16))
+            globs.visit_block_count[int(line.strip(), 16)] = 0
+    globs.valid_block = valid_block
 
 def stat_visit_block():
     ''' called when exit '''
     global visit_block, valid_block
     with open(stat_file_list['visit_block'], "a+") as f:
         visit_block = [hex(x) for x in list(visit_block)]
-        visit_block_str = " ".join(visit_block)
+        visit_block_str = "\n".join(visit_block)
         f.write("%d\t%s\n" % (int(round(os.path.getctime(globs.args.input_file))), visit_block_str))
 
 def stat_exit():

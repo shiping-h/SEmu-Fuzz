@@ -1,3 +1,5 @@
+import networkx as nx
+
 args = None
 config = None
 uc = None
@@ -5,6 +7,13 @@ config_dir = ""
 block_count = 0
 user_input = []
 tool_name = 'semu-fuzz'
+# 统计基本块覆盖次数
+visit_block_count = {}
+valid_block = set()
+# 状态转换图
+transmit_graph = nx.DiGraph()
+pre_node = None
+reg_data = None
 
 #-- parameters in configuration --#
 DEFAULT_BASIC_BLOCK_LIMIT = 30000000 # the number of basic blocks to be executed

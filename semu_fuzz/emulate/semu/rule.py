@@ -9,6 +9,7 @@ from .class_def import *
 from unicorn.unicorn_const import *
 from unicorn.arm_const import *
 from random import choice
+from random import randint
 from math import ceil
 import os
 import re
@@ -617,6 +618,8 @@ def get_value_from_receive_buffer(data_reg, phaddr, size):
     if len(data_reg.r_fifo) == 0 and len(data_reg.user_r_fifo):
         data_reg.r_fifo = data_reg.user_r_fifo[:4]
         data_reg.user_r_fifo = data_reg.user_r_fifo[4:]
+    if len(data_reg.r_fifo) == 0 and len(data_reg.user_r_fifo) == 0:
+        data_reg.r_fifo = [randint(0, 255), randint(0, 255), randint(0, 255), randint(0, 255)]
     data_reg.r_size = len(data_reg.r_fifo) * 8
     # if in irq, don't exit, because this data will be used after irq.
     # if in systick, still exit.
@@ -740,7 +743,7 @@ def writeHook(uc, access, address, size, value, user_data):
             
 def blockHook(uc, address, size, user_data):
     # every INTERRUPT_INTERVAL blocks, update flag and write into receive buffer
-    if (globs.block_count % globs.config.systick_reload) == 0 :
+    if address in globs.valid_block and (globs.block_count % globs.config.systick_reload) == 0 :
         # update flag
         deal_rule_flag('counter')
 
@@ -777,6 +780,10 @@ def exceptionexitHook(uc, intno, size):
 
 def rules_configure(uc, path):
     RULE.configure(uc, path)
+    data_widths = {}
+    for address in RULE.data_regs:
+        data_widths[address] = RULE.regs[address].data_width
+    # print(RULE.regs)
 
 class RULE():
     uc = None
