@@ -8,6 +8,8 @@ import struct
 from random import choice
 import os
 
+from ..drl.transition_graph import StateNode
+
 DEBUG_NVIC = False
 native_nvic = None
 
@@ -488,6 +490,13 @@ class NVIC():
                              cls.uc.mem_read(cls.vtor + num * PTR_SIZE, 4))
         if DEBUG_NVIC:
             print("[+] Interrupt #0x{:02x}: Redirecting to isr: 0x{:08x}".format(num, isr))
+        
+        # 初始化中断状态图
+        globs.ISINTERRPUT = True
+        globs.state_blocks = []
+        globs.isr_action_data = None
+        globs.state_node = None
+
         cls.uc.reg_write(UC_ARM_REG_PC, isr)
         
         # Set new LR
@@ -533,6 +542,26 @@ class NVIC():
             print("[+] Interrupt #0x%02x: Return Success!" % curr_active)
             print("[+] ----------------------------------")
         
+        # 更新中断相关状态图
+        pre_isr_state_node = globs.isr_state_node
+        isr_action_data = globs.isr_action_data
+        isr_state_node = StateNode(globs.isr_state_blocks, None)
+        if pre_isr_state_node == None:
+            if globs.transition_graph.has_node(isr_state_node) == None:
+                globs.transition_graph.add_node(isr_state_node)
+        else:
+            # 更新状态图
+            n = globs.transition_graph.has_node(isr_state_node)
+            if n == None:
+                globs.transition_graph.add_node(isr_state_node)
+                globs.transition_graph.add_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+            else:
+                isr_state_node = n
+                if globs.transition_graph.has_edge(pre_isr_state_node, isr_state_node):
+                    globs.transition_graph.update_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+                else:
+                    globs.transition_graph.add_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+        globs.ISINTERRPUT = False
         return False
     
     @classmethod

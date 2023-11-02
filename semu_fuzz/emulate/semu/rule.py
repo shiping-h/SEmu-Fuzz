@@ -14,6 +14,8 @@ from math import ceil
 import os
 import re
 
+from ...drl.transition_graph import StateNode
+
 #--------------Class Identification------------------#
 
 def correct_addr_to_map(address, size, mode):
@@ -651,6 +653,8 @@ def readHook(uc, access, address, size, value, user_data):
         debug_info("==> Peripheral read: address: 0x%x, value: %d; bitband address: 0x%x, bit: %d, value: 0x%x.pc: %s.\n" % (address_raw, value, address, bit_shift, value_band, hex(uc.reg_read(UC_ARM_REG_PC))), 2)
         return
     # correct address to the address map
+    if size > 4:
+        print("get!")
     addr_mapped = correct_addr_to_map(address, size<<3, 'whole')
     for mapped in addr_mapped:
         address, bit_begin, bit_end = mapped
@@ -660,6 +664,61 @@ def readHook(uc, access, address, size, value, user_data):
             # only get non-reserved fields
             size = RULE.regs[address].data_width >> 3
             value = get_value_from_receive_buffer(data_reg, address, size)
+            # 生成状态节点
+            ################
+            # 需要check一下 #
+            ################
+            if globs.ISINTERRPUT:
+                # 更新中断相关状态图
+                pre_isr_state_node = globs.isr_state_node
+                isr_action_data = globs.isr_action_data
+                isr_state_node = StateNode(globs.isr_state_blocks, address)
+                if pre_isr_state_node == None:
+                    if globs.transition_graph.has_node(isr_state_node) == None:
+                        globs.transition_graph.add_node(isr_state_node)
+                else:
+                    # 更新状态图
+                    n = globs.transition_graph.has_node(isr_state_node)
+                    if n == None:
+                        globs.transition_graph.add_node(isr_state_node)
+                        globs.transition_graph.add_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+                    else:
+                        isr_state_node = n
+                        if globs.transition_graph.has_edge(pre_isr_state_node, isr_state_node):
+                            globs.transition_graph.update_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+                        else:
+                            globs.transition_graph.add_edge(pre_isr_state_node, isr_state_node, isr_action_data)
+                # 更新globs.isr_state_node
+                globs.isr_state_node = isr_state_node
+                # 更新globs.isr_action_data
+                globs.isr_action_data = value
+                # 重置globs.isr_state_blocks
+                globs.isr_state_blocks = []
+            else:
+                pre_state_node = globs.state_node
+                action_data = globs.action_data
+                state_node = StateNode(globs.state_blocks, address)
+                if pre_state_node == None:
+                    if globs.transition_graph.has_node(state_node) == None:
+                        globs.transition_graph.add_node(state_node)
+                else:
+                    # 更新状态图
+                    n = globs.transition_graph.has_node(state_node)
+                    if n == None:
+                        globs.transition_graph.add_node(state_node)
+                        globs.transition_graph.add_edge(pre_state_node, state_node, action_data)
+                    else:
+                        state_node = n
+                        if globs.transition_graph.has_edge(pre_state_node, state_node):
+                            globs.transition_graph.update_edge(pre_state_node, state_node, action_data)
+                        else:
+                            globs.transition_graph.add_edge(pre_state_node, state_node, action_data)
+                # 更新globs.state_node
+                globs.state_node = state_node
+                # 更新globs.action_data
+                globs.action_data = value
+                # 重置globs.state_blocks
+                globs.state_blocks = []
             # the change of receive buffer may match rules.
             deal_rule_O(address)
             deal_rule_flag('random', address)
@@ -679,7 +738,7 @@ def readHook(uc, access, address, size, value, user_data):
         uc.mem_write(address, value.to_bytes(size, 'little'))
         # match read(R) rule.
         deal_rule_flag('random', address)
-        deal_rule_RWVB(address, 'R')
+        deal_rule_RWVB(address, 'R')       
             
 
 def writeHook(uc, access, address, size, value, user_data):
@@ -709,6 +768,8 @@ def writeHook(uc, access, address, size, value, user_data):
         debug_info("==> Peripheral write: address: 0x%x, value: %d; bitband address: 0x%x, bit: %d, value: 0x%x.\n" % (address_raw, value, address, bit_shift, value2), 2)
         return
     # Correct addr and value to addr_map.
+    if size > 4:
+        print("get!")
     addr_mapped = correct_addr_to_map(address, size<<3, 'whole')
     value_bytes = value.to_bytes(size, 'little')
     for mapped in addr_mapped:
@@ -780,9 +841,8 @@ def exceptionexitHook(uc, intno, size):
 
 def rules_configure(uc, path):
     RULE.configure(uc, path)
-    data_widths = {}
     for address in RULE.data_regs:
-        data_widths[address] = RULE.regs[address].data_width
+        globs.data_widths[address] = RULE.regs[address].data_width
     # print(RULE.regs)
 
 class RULE():

@@ -9,6 +9,12 @@ from unicorn.arm_const import *
 def _hook_block_add(uc, address, size, user_data):
     if address in globs.valid_block:
         globs.block_count = globs.block_count + 1
+        # 是否在执行中断
+        if globs.ISINTERRPUT:
+            globs.isr_state_blocks.append(address)
+        else:
+            # 添加block到状态节点中
+            globs.state_blocks.append(address)
 
 def uc_configure():
     config = globs.config
@@ -83,6 +89,21 @@ def uc_emulate(uc):
     globs.raw_input = globs.user_input[:]
     try:
         result = uc.emu_start(uc.reg_read(UC_ARM_REG_PC)|1, 0, timeout=0, count=globs.args.instr_limit)
+        print(globs.transition_graph.number_of_nodes())
+        # for node in globs.transition_graph.nodes:
+            # print(node.blocks)
+            # print(str(len(node.blocks)) + "\t" + (hex(node.reg_address) if node.reg_address != None else "None"))
+            # if len(node.blocks) > 1000:
+            #     print(node.blocks)
+                # com_blocks = [node.blocks[0]]
+                # for block in node.blocks:
+                #     if block != com_blocks[-1]:
+                #         com_blocks.append(block)
+                # print(len(node.blocks))
+                # print(len(com_blocks))
+        # for edge in globs.transition_graph.edges:
+        #     print(globs.transition_graph.get_edge_data(edge)["datas"])
+        print(globs.transition_graph.number_of_edges())
         do_exit(0)
     except UcError as e:
         print("[-] Crash! {}".format(e))
