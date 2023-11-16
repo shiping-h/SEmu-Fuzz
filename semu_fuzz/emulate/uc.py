@@ -90,7 +90,9 @@ def uc_emulate(uc):
     try:
         result = uc.emu_start(uc.reg_read(UC_ARM_REG_PC)|1, 0, timeout=0, count=globs.args.instr_limit)
         print(globs.transition_graph.number_of_nodes())
-        # for node in globs.transition_graph.nodes:
+        adds = set()
+        for node in globs.transition_graph.nodes:
+            adds.add(node.reg_address)
             # print(node.blocks)
             # print(str(len(node.blocks)) + "\t" + (hex(node.reg_address) if node.reg_address != None else "None"))
             # if len(node.blocks) > 1000:
@@ -104,6 +106,8 @@ def uc_emulate(uc):
         # for edge in globs.transition_graph.edges:
         #     print(globs.transition_graph.get_edge_data(edge)["datas"])
         print(globs.transition_graph.number_of_edges())
+        print(adds)
+        print(len(adds))
         do_exit(0)
     except UcError as e:
         print("[-] Crash! {}".format(e))
